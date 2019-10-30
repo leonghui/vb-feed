@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
 import requests
 from bs4 import BeautifulSoup
@@ -74,7 +74,21 @@ def get_latest_posts(thread_id):
 
             post_datetime_tag = status_row.select_one('tr td.thead')
             post_datetime_text = post_datetime_tag.get_text().strip()
-            post_datetime = datetime.strptime(post_datetime_text, '%d-%m-%Y, %I:%M %p')
+
+            if post_datetime_text.startswith('Today'):
+                post_datetime = datetime.combine(
+                    date.today(),
+                    datetime.strptime(post_datetime_text, 'Today, %I:%M %p').time()
+                )
+            elif post_datetime_text.startswith('Yesterday'):
+                post_datetime = datetime.combine(
+                    date.today() - timedelta(days=1),
+                    datetime.strptime(post_datetime_text, 'Yesterday, %I:%M %p').time()
+                )
+            else:
+                post_datetime = datetime.strptime(post_datetime_text, '%d-%m-%Y, %I:%M %p')
+
+            post_datetime_formatted = post_datetime.isoformat('T')
 
             post_uri_tag = status_row.select_one(f"#postcount{post_id}")
             post_uri = post_uri_tag['href']
@@ -89,7 +103,7 @@ def get_latest_posts(thread_id):
                 'url': post_url,
                 'title': ' - '.join((thread_title, f"Page {page}")),
                 'content_text': post_message.get_text(),
-                'date_published': post_datetime.isoformat('T'),
+                'date_published': post_datetime_formatted,
                 'author': {
                     'name': post_author
                 }
