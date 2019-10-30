@@ -114,15 +114,21 @@ def get_latest_posts(thread_id):
 
             if post_datetime_text is not None:
                 if post_datetime_text.startswith('Today'):
-                    post_datetime = datetime.combine(
-                        date.today(),
-                        datetime.strptime(post_datetime_text, 'Today, %I:%M %p').time()
-                    )
+                    # try 12H and 24H formats
+                    try:
+                        post_time = datetime.strptime(post_datetime_text, 'Today, %I:%M %p').time()
+                    except ValueError:
+                        post_time = datetime.strptime(post_datetime_text, 'Today, %H:%M').time()
+
+                    post_datetime = datetime.combine(date.today(), post_time)
                 elif post_datetime_text.startswith('Yesterday'):
-                    post_datetime = datetime.combine(
-                        date.today() - timedelta(days=1),
-                        datetime.strptime(post_datetime_text, 'Yesterday, %I:%M %p').time()
-                    )
+                    # try 12H and 24H formats
+                    try:
+                        post_time = datetime.strptime(post_datetime_text, 'Yesterday, %I:%M %p').time()
+                    except ValueError:
+                        post_time = datetime.strptime(post_datetime_text, 'Yesterday, %H:%M').time()
+
+                    post_datetime = datetime.combine(date.today() - timedelta(days=1), post_time)
                 else:
                     try:
                         post_datetime = datetime.strptime(post_datetime_text, '%d-%m-%Y, %I:%M %p')
