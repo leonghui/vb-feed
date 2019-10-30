@@ -1,10 +1,12 @@
+import logging
+import os
+import re
 from datetime import datetime, date, timedelta
 
 import requests
 from bs4 import BeautifulSoup
 
-FORUM_NAME = 'name'
-FORUM_URL = 'https://forums.name.com'
+FORUM_URL = os.environ['FORUM_URL']
 JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1'
 
 VB_POSTS_PER_THREAD = 15
@@ -26,23 +28,34 @@ def get_latest_posts(thread_id):
     page_soup = BeautifulSoup(thread_request.text, features='html.parser')
 
     header = page_soup.head
-    page_icon = header.select_one("link[rel='SHORTCUT ICON']")['href']
-    thread_title = header.select_one("meta[property='og:title']")['content']
-    thread_desc = header.select_one("meta[name='description']")['content']
+    thread_title = header.title.get_text()
 
     output = {
         'version': JSONFEED_VERSION_URL,
-        'title': ' - '.join((thread_title, FORUM_NAME)),
-        'home_page_url': FORUM_URL + thread_uri,
-        'description': thread_desc,
-        'favicon': page_icon
+        'title': thread_title,
+        'home_page_url': FORUM_URL + thread_uri
     }
 
-    pagination = page_soup.select_one('div.pagination')
-    last_page_text = pagination.span.string.split(' of ')[1]
+    try:
+        page_icon = header.select_one("link[rel='shortcut icon']")['href']
+        if page_icon:
+            output['favicon'] = page_icon
+    except TypeError:
+        logging.info('Favicon not found')
 
     try:
-        last_page = int(last_page_text)
+        thread_desc = header.select_one("meta[name='description']")['content']
+        if thread_desc:
+            output['description'] = thread_desc
+    except TypeError:
+        logging.info('Description not found')
+
+    pagination = page_soup.find(class_=['pagenav', 'pagination'])
+
+    last_page_text = str(next(string for string in pagination.strings if string.startswith('Page')))
+
+    try:
+        last_page = int(str(last_page_text).split(' of ')[1])
     except ValueError:
         last_page_text_sanitized = ''.join(filter(str.isdigit, last_page_text))
         last_page = int(last_page_text_sanitized)
@@ -65,49 +78,55 @@ def get_latest_posts(thread_id):
 
         thread_content = page_soup.select_one('div#posts')
 
-        post_tables = thread_content.select('table.post')
+        post_tables = thread_content.find_all('table', class_='tborder', id=re.compile('^post'))
 
         for post_table in post_tables:
-            post_id = post_table['id'].replace('post', '')
+            post_id = str(post_table['id'].replace('post', ''))
 
             status_row = post_table.select_one('tr:first-of-type')
+            post_url = FORUM_URL + f"/showpost.php?p={post_id}"
 
-            post_datetime_tag = status_row.select_one('tr td.thead')
-            post_datetime_text = post_datetime_tag.get_text().strip()
-
-            if post_datetime_text.startswith('Today'):
-                post_datetime = datetime.combine(
-                    date.today(),
-                    datetime.strptime(post_datetime_text, 'Today, %I:%M %p').time()
-                )
-            elif post_datetime_text.startswith('Yesterday'):
-                post_datetime = datetime.combine(
-                    date.today() - timedelta(days=1),
-                    datetime.strptime(post_datetime_text, 'Yesterday, %I:%M %p').time()
-                )
-            else:
-                post_datetime = datetime.strptime(post_datetime_text, '%d-%m-%Y, %I:%M %p')
-
-            post_datetime_formatted = post_datetime.isoformat('T')
-
-            post_uri_tag = status_row.select_one(f"#postcount{post_id}")
-            post_uri = post_uri_tag['href']
-            post_url = FORUM_URL + post_uri
-
-            body_row = post_table.select_one('tr:nth-of-type(2)')
-            post_author = body_row.select_one(f"#postmenu_{post_id} a").string
-            post_message = body_row.select_one(f"#post_message_{post_id}")
+            post_author = post_table.find(id=f"postmenu_{post_id}").a
+            post_message = post_table.find(id=f"post_message_{post_id}")
 
             item = {
                 'id': post_url,
                 'url': post_url,
                 'title': ' - '.join((thread_title, f"Page {page}")),
                 'content_text': post_message.get_text(),
-                'date_published': post_datetime_formatted,
                 'author': {
-                    'name': post_author
+                    'name': post_author.get_text()
                 }
             }
+
+            post_datetime_text = None
+
+            for cell in status_row.select('tr td.thead'):
+                cell.a.decompose()
+                for string in cell.stripped_strings:
+                    if not string.startswith('#'):
+                        post_datetime_text = string
+
+            if post_datetime_text is not None:
+                if post_datetime_text.startswith('Today'):
+                    post_datetime = datetime.combine(
+                        date.today(),
+                        datetime.strptime(post_datetime_text, 'Today, %I:%M %p').time()
+                    )
+                elif post_datetime_text.startswith('Yesterday'):
+                    post_datetime = datetime.combine(
+                        date.today() - timedelta(days=1),
+                        datetime.strptime(post_datetime_text, 'Yesterday, %I:%M %p').time()
+                    )
+                else:
+                    try:
+                        post_datetime = datetime.strptime(post_datetime_text, '%d-%m-%Y, %I:%M %p')
+                    except ValueError:
+                        post_datetime = datetime.strptime(post_datetime_text, '%d %b %Y, %H:%M')
+
+                post_datetime_formatted = post_datetime.isoformat('T')
+
+                item['date_published'] = post_datetime_formatted
 
             items_list.append(item)
 
