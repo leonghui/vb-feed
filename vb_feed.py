@@ -52,15 +52,20 @@ def get_latest_posts(thread_id):
 
     pagination = page_soup.find(class_=['pagenav', 'pagination'])
 
-    last_page_text = str(next(string for string in pagination.strings if string.startswith('Page')))
+    min_page = 1
+    last_page = 1
 
-    try:
-        last_page = int(str(last_page_text).split(' of ')[1])
-    except ValueError:
-        last_page_text_sanitized = ''.join(filter(str.isdigit, last_page_text))
-        last_page = int(last_page_text_sanitized)
+    if pagination is not None:
 
-    min_page = last_page - (page_limit - 1)
+        last_page_text = str(next(string for string in pagination.strings if string.startswith('Page')))
+
+        try:
+            last_page = int(str(last_page_text).split(' of ')[1])
+        except ValueError:
+            last_page_text_sanitized = ''.join(filter(str.isdigit, last_page_text))
+            last_page = int(last_page_text_sanitized)
+
+        min_page = last_page - (page_limit - 1)
 
     start_page = 1 if min_page < 1 else min_page
 
