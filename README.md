@@ -5,7 +5,7 @@ Uses [BeautifulSoup 4](https://www.crummy.com/software/BeautifulSoup/) and serve
 
 Use the [Docker build](https://hub.docker.com/r/leonghui/vb-feed) to host your own instance.
 
-Access the feed using the URL: `http://<host>/vb-feed/{threadid}/`
+Access the feed using the URL: `http://<host>/{threadid}/`
 
 E.g.
 ```
@@ -13,7 +13,7 @@ Forum thread:
 https://vbulletin.org/forum/showthread.php?t=322893
 
 Feed link:
-http://<host>/vb-feed/322893/
+http://<host>/322893/
 ```
 
 Tested with:
