@@ -17,6 +17,35 @@ if page_limit < 1:
     page_limit = 1
 
 
+def extract_datetime(text):
+    datetime_formats = [
+        'Today, %I:%M %p',
+        'Today, %H:%M',
+        'Yesterday, %I:%M %p',
+        'Yesterday, %H:%M',
+        '%d-%m-%Y, %I:%M %p',
+        '%d %b %Y, %H:%M'
+    ]
+
+    # default timestamp
+    datetime_obj = datetime.now()
+
+    for datetime_format in datetime_formats:
+        try:
+            datetime_obj = datetime.strptime(text, datetime_format)
+        except ValueError:
+            pass
+
+    if text.startswith('Today'):
+        today = date.today()
+        datetime_obj = datetime_obj.replace(year=today.year, month=today.month, day=today.day)
+    elif text.startswith('Yesterday'):
+        yesterday = date.today() - timedelta(days=1)
+        datetime_obj = datetime_obj.replace(year=yesterday.year, month=yesterday.month, day=yesterday.day)
+
+    return datetime_obj
+
+
 def get_latest_posts(thread_id):
     thread_uri = f"/showthread.php?t={thread_id}"
     thread_request = requests.get(FORUM_URL + thread_uri)
@@ -113,31 +142,8 @@ def get_latest_posts(thread_id):
                         post_datetime_text = string
 
             if post_datetime_text is not None:
-                if post_datetime_text.startswith('Today'):
-                    # try 12H and 24H formats
-                    try:
-                        post_time = datetime.strptime(post_datetime_text, 'Today, %I:%M %p').time()
-                    except ValueError:
-                        post_time = datetime.strptime(post_datetime_text, 'Today, %H:%M').time()
-
-                    post_datetime = datetime.combine(date.today(), post_time)
-                elif post_datetime_text.startswith('Yesterday'):
-                    # try 12H and 24H formats
-                    try:
-                        post_time = datetime.strptime(post_datetime_text, 'Yesterday, %I:%M %p').time()
-                    except ValueError:
-                        post_time = datetime.strptime(post_datetime_text, 'Yesterday, %H:%M').time()
-
-                    post_datetime = datetime.combine(date.today() - timedelta(days=1), post_time)
-                else:
-                    try:
-                        post_datetime = datetime.strptime(post_datetime_text, '%d-%m-%Y, %I:%M %p')
-                    except ValueError:
-                        post_datetime = datetime.strptime(post_datetime_text, '%d %b %Y, %H:%M')
-
-                post_datetime_formatted = post_datetime.isoformat('T')
-
-                item['date_published'] = post_datetime_formatted
+                post_datetime = extract_datetime(post_datetime_text)
+                item['date_published'] = post_datetime.isoformat('T')
 
             items_list.append(item)
 
