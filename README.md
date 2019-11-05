@@ -5,7 +5,9 @@ Uses [BeautifulSoup 4](https://www.crummy.com/software/BeautifulSoup/) and serve
 
 Use the [Docker build](https://hub.docker.com/r/leonghui/vb-feed) to host your own instance.
 
-Access the feed using the URL: `http://<host>/{threadid}/`
+1. Set the environment variable: `FORUM_URL=https://vbulletin.org/forum`
+
+2. Access the feed using the URL: `http://<host>/{threadid}/`
 
 E.g.
 ```
