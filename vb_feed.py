@@ -3,6 +3,7 @@ import os
 import re
 from datetime import datetime, date, timedelta
 
+import bleach
 import requests
 from bs4 import BeautifulSoup
 
@@ -15,6 +16,8 @@ FEED_POSTS_LIMIT = 30  # default to 2 pages per feed
 page_limit = FEED_POSTS_LIMIT // VB_POSTS_PER_THREAD
 if page_limit < 1:
     page_limit = 1
+
+allowed_tags = ['abbr', 'acronym', 'b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul', 'br']
 
 
 def extract_datetime(text):
@@ -123,11 +126,20 @@ def get_latest_posts(thread_id):
             post_author = post_table.find(id=f"postmenu_{post_id}").a
             post_message = post_table.find(id=f"post_message_{post_id}")
 
+            # omit closing slash in void tags like br and remove carriage returns
+            post_content = post_message.encode(formatter='html5').decode()
+            post_content = post_content.replace('\n', '')
+            post_content = post_content.replace('\r', '')
+
             item = {
                 'id': post_url,
                 'url': post_url,
                 'title': ' - '.join((thread_title, f"Page {page}")),
-                'content_text': post_message.get_text(),
+                'content_html': bleach.clean(
+                    post_content,
+                    tags=allowed_tags,
+                    strip=True
+                ),
                 'author': {
                     'name': post_author.get_text()
                 }
