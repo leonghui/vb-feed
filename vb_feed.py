@@ -64,7 +64,7 @@ def get_latest_posts(thread_id):
 
     output = {
         'version': JSONFEED_VERSION_URL,
-        'title': thread_title,
+        'title': thread_title.strip(),
         'home_page_url': FORUM_URL + thread_uri
     }
 
@@ -78,7 +78,7 @@ def get_latest_posts(thread_id):
     try:
         thread_desc = header.select_one("meta[name='description']")['content']
         if thread_desc:
-            output['description'] = thread_desc
+            output['description'] = thread_desc.strip()
     except TypeError:
         logging.info('Description not found')
 
@@ -115,7 +115,10 @@ def get_latest_posts(thread_id):
 
         thread_content = page_soup.select_one('div#posts')
 
-        post_tables = thread_content.find_all('table', class_='tborder', id=re.compile('^post'))
+        try:
+            post_tables = thread_content.find_all('table', class_='tborder', id=re.compile('^post'))
+        except AttributeError:
+            return "Error no posts found."
 
         for post_table in post_tables:
             post_id = str(post_table['id'].replace('post', ''))
@@ -131,10 +134,13 @@ def get_latest_posts(thread_id):
             post_content = post_content.replace('\n', '')
             post_content = post_content.replace('\r', '')
 
+            # remove tabs
+            post_content = post_content.replace('\t', '')
+
             item = {
                 'id': post_url,
                 'url': post_url,
-                'title': ' - '.join((thread_title, f"Page {page}")),
+                'title': ' - '.join((thread_title, f"Page {page}")).strip(),
                 'content_html': bleach.clean(
                     post_content,
                     tags=allowed_tags,
