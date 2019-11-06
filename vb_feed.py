@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import bleach
 import requests
@@ -53,7 +53,7 @@ def extract_datetime(text):
             tzinfo=formatted_date.astimezone().tzinfo
         )
 
-    return datetime_obj
+    return datetime_obj.astimezone(timezone.utc)
 
 
 def get_latest_posts(thread_id):
