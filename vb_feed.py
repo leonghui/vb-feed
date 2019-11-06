@@ -57,7 +57,13 @@ def get_latest_posts(thread_id):
     if not thread_response.ok:
         return f"Error {thread_response.status_code}"
 
-    thread_soup = BeautifulSoup(thread_response.text, features='html.parser')
+    # override vBulletin's wrong charset, fixes conversion issues with "smart-quotes"
+    if thread_response.encoding == 'ISO-8859-1':
+        thread_content = str(thread_response.content.decode('windows-1252'))
+    else:
+        thread_content = thread_response.text
+
+    thread_soup = BeautifulSoup(thread_content, features='html.parser')
 
     header = thread_soup.head
     thread_title = header.title.get_text()
@@ -111,7 +117,13 @@ def get_latest_posts(thread_id):
         if not page_response.ok:
             return f"Error {page_response.status_code}"
 
-        page_soup = BeautifulSoup(page_response.text, features='html.parser')
+        # override vBulletin's wrong charset, fixes conversion issues with "smart-quotes"
+        if page_response.encoding == 'ISO-8859-1':
+            page_content = str(page_response.content.decode('windows-1252'))
+        else:
+            page_content = page_response.text
+
+        page_soup = BeautifulSoup(page_content, features='html.parser')
 
         post_section = page_soup.select_one('div#posts')
 
