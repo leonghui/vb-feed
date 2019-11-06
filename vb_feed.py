@@ -51,15 +51,15 @@ def extract_datetime(text):
 
 def get_latest_posts(thread_id):
     thread_uri = f"/showthread.php?t={thread_id}"
-    thread_request = requests.get(FORUM_URL + thread_uri)
+    thread_response = requests.get(FORUM_URL + thread_uri)
 
     # return HTTP error code
-    if not thread_request.ok:
-        return f"Error {thread_request.status_code}"
+    if not thread_response.ok:
+        return f"Error {thread_response.status_code}"
 
-    page_soup = BeautifulSoup(thread_request.text, features='html.parser')
+    thread_soup = BeautifulSoup(thread_response.text, features='html.parser')
 
-    header = page_soup.head
+    header = thread_soup.head
     thread_title = header.title.get_text()
 
     output = {
@@ -82,7 +82,7 @@ def get_latest_posts(thread_id):
     except TypeError:
         logging.info('Description not found')
 
-    pagination = page_soup.find(class_=['pagenav', 'pagination'])
+    pagination = thread_soup.find(class_=['pagenav', 'pagination'])
 
     min_page = 1
     last_page = 1
@@ -105,18 +105,18 @@ def get_latest_posts(thread_id):
 
     for page in range(start_page, last_page + 1):
 
-        page_request = requests.get(FORUM_URL + thread_uri + f"&page={page}")
+        page_response = requests.get(FORUM_URL + thread_uri + f"&page={page}")
 
         # return HTTP error code
-        if not page_request.ok:
-            return f"Error {page_request.status_code}"
+        if not page_response.ok:
+            return f"Error {page_response.status_code}"
 
-        page_soup = BeautifulSoup(page_request.text, features='html.parser')
+        page_soup = BeautifulSoup(page_response.text, features='html.parser')
 
-        thread_content = page_soup.select_one('div#posts')
+        post_section = page_soup.select_one('div#posts')
 
         try:
-            post_tables = thread_content.find_all('table', class_='tborder', id=re.compile('^post'))
+            post_tables = post_section.find_all('table', class_='tborder', id=re.compile('^post'))
         except AttributeError:
             return "Error no posts found."
 
