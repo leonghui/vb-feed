@@ -1,7 +1,7 @@
 import logging
 import os
 import re
-from datetime import datetime, date, timedelta
+from datetime import datetime, timedelta
 
 import bleach
 import requests
@@ -39,12 +39,18 @@ def extract_datetime(text):
         except ValueError:
             pass
 
+    formatted_date = None
+
     if text.startswith('Today'):
-        today = date.today()
-        datetime_obj = datetime_obj.replace(year=today.year, month=today.month, day=today.day)
+        formatted_date = datetime.now()
     elif text.startswith('Yesterday'):
-        yesterday = date.today() - timedelta(days=1)
-        datetime_obj = datetime_obj.replace(year=yesterday.year, month=yesterday.month, day=yesterday.day)
+        formatted_date = datetime.now() - timedelta(days=1)
+
+    if formatted_date is not None:
+        datetime_obj = datetime_obj.replace(
+            year=formatted_date.year, month=formatted_date.month, day=formatted_date.day,
+            tzinfo=formatted_date.astimezone().tzinfo
+        )
 
     return datetime_obj
 
