@@ -17,7 +17,8 @@ page_limit = FEED_POSTS_LIMIT // VB_POSTS_PER_THREAD
 if page_limit < 1:
     page_limit = 1
 
-allowed_tags = ['abbr', 'acronym', 'b', 'blockquote', 'code', 'em', 'i', 'li', 'ol', 'strong', 'ul', 'br']
+allowed_tags = bleach.ALLOWED_TAGS.copy() + ['br', 'u']
+allowed_tags.remove('a')
 
 
 def extract_datetime(text):
