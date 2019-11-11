@@ -7,9 +7,9 @@ Use the [Docker build](https://hub.docker.com/r/leonghui/vb-feed) to host your o
 
 1. Set your timezone as an environment variable (see [docker docs]): `TZ=America/Los_Angeles` 
 
-2. Access the feed using the URL: `http://<host>/feed.json?forum_url={url}&thread_id={id}`
+2. Access the feed using the URL: `http://<host>/?forum_url={url}&thread_id={id}`
 
-3. Optionally, filter by user names: `http://<host>/feed.json?forum_url={url}&thread_id={id}&usernames={user1,user2}`
+3. Optionally, filter by user names: `http://<host>/?forum_url={url}&thread_id={id}&usernames={user1,user2}`
 
 E.g.
 ```
@@ -17,10 +17,10 @@ Forum thread:
 https://vbulletin.org/forum/showthread.php?t=322893
 
 Feed link:
-http://<host>/feed.json?forum_url=https://vbulletin.org/forum&thread_id=322893
+http://<host>/?forum_url=https://vbulletin.org/forum&thread_id=322893
 
 Filtered feed link:
-http://<host>/feed.json?forum_url=https://vbulletin.org/forum&thread_id=322893&usernames=Paul M,Dave
+http://<host>/?forum_url=https://vbulletin.org/forum&thread_id=322893&usernames=Paul M,Dave
 ```
 
 Tested with:

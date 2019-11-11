@@ -7,7 +7,7 @@ from vb_feed import get_latest_posts
 app = Flask(__name__)
 
 
-@app.route('/feed.json', methods=['GET'])
+@app.route('/', methods=['GET'])
 def form():
     forum_url = request.args.get('forum_url')
     thread_id = request.args.get('thread_id')
