@@ -1,5 +1,4 @@
 import logging
-import os
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -7,7 +6,6 @@ import bleach
 import requests
 from bs4 import BeautifulSoup
 
-FORUM_URL = os.environ['FORUM_URL']
 JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1'
 
 VB_POSTS_PER_THREAD = 15
@@ -56,9 +54,9 @@ def extract_datetime(text):
     return datetime_obj.astimezone(timezone.utc)
 
 
-def get_latest_posts(thread_id):
+def get_latest_posts(forum_url, thread_id):
     thread_uri = f"/showthread.php?t={thread_id}"
-    thread_response = requests.get(FORUM_URL + thread_uri)
+    thread_response = requests.get(forum_url + thread_uri)
 
     # return HTTP error code
     if not thread_response.ok:
@@ -78,7 +76,7 @@ def get_latest_posts(thread_id):
     output = {
         'version': JSONFEED_VERSION_URL,
         'title': thread_title.strip(),
-        'home_page_url': FORUM_URL + thread_uri
+        'home_page_url': forum_url + thread_uri
     }
 
     try:
@@ -118,7 +116,7 @@ def get_latest_posts(thread_id):
 
     for page in range(start_page, last_page + 1):
 
-        page_response = requests.get(FORUM_URL + thread_uri + f"&page={page}")
+        page_response = requests.get(forum_url + thread_uri + f"&page={page}")
 
         # return HTTP error code
         if not page_response.ok:
@@ -143,7 +141,7 @@ def get_latest_posts(thread_id):
             post_id = str(post_table['id'].replace('post', ''))
 
             status_row = post_table.select_one('tr:first-of-type')
-            post_url = FORUM_URL + f"/showpost.php?p={post_id}"
+            post_url = forum_url + f"/showpost.php?p={post_id}"
 
             post_author = post_table.find(id=f"postmenu_{post_id}").a
             post_message = post_table.find(id=f"post_message_{post_id}")

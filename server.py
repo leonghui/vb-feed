@@ -1,33 +1,27 @@
-from flask import Flask, request, redirect, url_for, jsonify
+from flask import Flask, request, jsonify
+from requests import exceptions
 
 from vb_feed import get_latest_posts
 
 app = Flask(__name__)
 
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/feed.json', methods=['GET'])
 def form():
-    if request.method == 'POST':
-        input_text = request.form['input']
-        if input_text == '' or not input_text.isnumeric():
-            return redirect(url_for('form'))
-        else:
-            return redirect(url_for('hello', thread_id=input_text))
-    return '''
-        <form method="post">
-            <p><input type=text name=input>
-            <p><input type=submit value=Go>
-        </form>
-    '''
+    forum_url = request.args.get('forum_url')
+    thread_id = request.args.get('thread_id')
 
+    if forum_url is not None and thread_id is not None:
+        if forum_url.endswith('/'):
+            forum_url = forum_url.rstrip('/')
 
-@app.route('/<thread_id>/')
-def hello(thread_id):
-    output = get_latest_posts(thread_id)
-    if output is not None:
-        return jsonify(output)
+        try:
+            output = get_latest_posts(forum_url, thread_id)
+            return jsonify(output)
+        except exceptions.RequestException:
+            return f"Error generating output for thread {thread_id} at {forum_url}."
     else:
-        return 'Error'
+        return 'Please provide values for both forum_url and thread_id'
 
 
 if __name__ == '__main__':
