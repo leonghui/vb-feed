@@ -1,3 +1,4 @@
+import validators
 from flask import Flask, request, jsonify
 from requests import exceptions
 
@@ -16,8 +17,11 @@ def form():
             forum_url = forum_url.rstrip('/')
 
         try:
+            assert validators.url(forum_url)
             output = get_latest_posts(forum_url, thread_id)
             return jsonify(output)
+        except AssertionError:
+            return f"Invalid url {forum_url}"
         except exceptions.RequestException:
             return f"Error generating output for thread {thread_id} at {forum_url}."
     else:
