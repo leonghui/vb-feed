@@ -54,7 +54,7 @@ def extract_datetime(text):
     return datetime_obj.astimezone(timezone.utc)
 
 
-def get_latest_posts(forum_url, thread_id):
+def get_latest_posts(forum_url, thread_id, username):
     thread_uri = f"/showthread.php?t={thread_id}"
     thread_response = requests.get(forum_url + thread_uri)
 
@@ -144,6 +144,7 @@ def get_latest_posts(forum_url, thread_id):
             post_url = forum_url + f"/showpost.php?p={post_id}"
 
             post_author = post_table.find(id=f"postmenu_{post_id}").a
+            post_author_text = post_author.get_text()
             post_message = post_table.find(id=f"post_message_{post_id}")
 
             # omit closing slash in void tags like br and remove carriage returns
@@ -154,17 +155,22 @@ def get_latest_posts(forum_url, thread_id):
             # remove tabs
             post_content = post_content.replace('\t', '')
 
+            post_title_list = [thread_title, f"Page {page}"]
+
+            if username is not None:
+                post_title_list.append(f"Posts by {username}")
+
             item = {
                 'id': post_url,
                 'url': post_url,
-                'title': ' - '.join((thread_title, f"Page {page}")).strip(),
+                'title': ' - '.join(post_title_list).strip(),
                 'content_html': bleach.clean(
                     post_content,
                     tags=allowed_tags,
                     strip=True
                 ),
                 'author': {
-                    'name': post_author.get_text()
+                    'name': post_author_text
                 }
             }
 
@@ -180,7 +186,11 @@ def get_latest_posts(forum_url, thread_id):
                 post_datetime = extract_datetime(post_datetime_text)
                 item['date_published'] = post_datetime.isoformat('T')
 
-            items_list.append(item)
+            if username is not None:
+                if username.lower().strip() == post_author_text.lower().strip():
+                    items_list.append(item)
+            else:
+                items_list.append(item)
 
     output['items'] = items_list
 

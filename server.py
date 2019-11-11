@@ -11,6 +11,7 @@ app = Flask(__name__)
 def form():
     forum_url = request.args.get('forum_url')
     thread_id = request.args.get('thread_id')
+    username = request.args.get('username')
 
     if forum_url is None or thread_id is None:
         return 'Please provide values for both forum_url and thread_id'
@@ -26,7 +27,7 @@ def form():
 
     try:
         assert validators.url(forum_url)
-        output = get_latest_posts(forum_url, thread_id)
+        output = get_latest_posts(forum_url, thread_id, username)
         return jsonify(output)
     except AssertionError:
         return f"Invalid url {forum_url}"
