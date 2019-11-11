@@ -54,7 +54,7 @@ def extract_datetime(text):
     return datetime_obj.astimezone(timezone.utc)
 
 
-def get_latest_posts(forum_url, thread_id, username):
+def get_latest_posts(forum_url, thread_id, username_list):
     thread_uri = f"/showthread.php?t={thread_id}"
     thread_response = requests.get(forum_url + thread_uri)
 
@@ -92,6 +92,8 @@ def get_latest_posts(forum_url, thread_id, username):
             output['description'] = thread_desc.strip()
     except TypeError:
         logging.info('Description not found')
+
+    username_lower_list = [username.lower().strip() for username in username_list]
 
     pagination = thread_soup.find(class_=['pagenav', 'pagination'])
 
@@ -157,8 +159,8 @@ def get_latest_posts(forum_url, thread_id, username):
 
             post_title_list = [thread_title, f"Page {page}"]
 
-            if username is not None:
-                post_title_list.append(f"Posts by {username}")
+            if username_list is not None and username_list:
+                post_title_list.append(f"Posts by {', '.join(username_list)}")
 
             item = {
                 'id': post_url,
@@ -186,10 +188,8 @@ def get_latest_posts(forum_url, thread_id, username):
                 post_datetime = extract_datetime(post_datetime_text)
                 item['date_published'] = post_datetime.isoformat('T')
 
-            if username is not None:
-                if username.lower().strip() == post_author_text.lower().strip():
-                    items_list.append(item)
-            else:
+            if not username_lower_list or\
+                    (username_lower_list and post_author_text.lower().strip() in username_lower_list):
                 items_list.append(item)
 
     output['items'] = items_list
