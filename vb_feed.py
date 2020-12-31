@@ -1,12 +1,13 @@
-import logging
 import re
-from datetime import datetime, timedelta, timezone
-
 import bleach
-import requests
+from datetime import datetime, timedelta, timezone
+from flask import abort
+from requests import Session
 from bs4 import BeautifulSoup
+from dataclasses import asdict
 
-JSONFEED_VERSION_URL = 'https://jsonfeed.org/version/1'
+from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JsonFeedAuthor
+
 
 VB_POSTS_PER_THREAD = 15
 FEED_POSTS_LIMIT = 30  # default to 2 pages per feed
@@ -54,46 +55,71 @@ def extract_datetime(text):
     return datetime_obj.astimezone(timezone.utc)
 
 
-def get_latest_posts(forum_url, thread_id, username_list):
-    thread_uri = f"/showthread.php?t={thread_id}"
-    thread_response = requests.get(forum_url + thread_uri)
+def get_response_soup(url, logger):
+
+    session = Session()
+
+    logger.debug(f'Querying endpoint: {url}')
+    response = session.get(url)
 
     # return HTTP error code
-    if not thread_response.ok:
-        return f"Error {thread_response.status_code}"
+    if not response.ok:
+        abort(
+            500, description=f"HTTP status from source: {response.status_code}")
 
     # override vBulletin's wrong charset, fixes conversion issues with "smart-quotes"
-    if thread_response.encoding == 'ISO-8859-1':
-        thread_content = str(thread_response.content.decode('windows-1252'))
+    if response.encoding == 'ISO-8859-1':
+        clean_response_text = str(response.content.decode('windows-1252'))
     else:
-        thread_content = thread_response.text
+        clean_response_text = response.text
 
-    thread_soup = BeautifulSoup(thread_content, features='html.parser')
+    response_soup = BeautifulSoup(clean_response_text, features='html.parser')
+
+    return response_soup
+
+
+def get_top_level_feed(thread_url, thread_soup, logger):
 
     header = thread_soup.head
     thread_title = header.title.get_text()
 
-    output = {
-        'version': JSONFEED_VERSION_URL,
-        'title': thread_title.strip(),
-        'home_page_url': forum_url + thread_uri
-    }
+    json_feed = JsonFeedTopLevel(
+        items=[],
+        title=thread_title.strip(),
+        home_page_url=thread_url,
+    )
 
-    try:
-        page_icon = header.select_one("link[rel='shortcut icon']")['href']
-        if page_icon:
-            output['favicon'] = page_icon
-    except TypeError:
-        logging.info('Favicon not found')
+    page_icon = header.select_one("link[rel='shortcut icon']")
+    if page_icon:
+        json_feed.favicon = page_icon['href']
 
-    try:
-        thread_desc = header.select_one("meta[name='description']")['content']
-        if thread_desc:
-            output['description'] = thread_desc.strip()
-    except TypeError:
-        logging.info('Description not found')
+    thread_desc = header.select_one("meta[name='description']")
+    if thread_desc:
+        json_feed.description = thread_desc['content'].strip()
 
-    username_lower_list = [username.lower().strip() for username in username_list]
+    return json_feed
+
+
+# https://stackoverflow.com/a/24893252
+def remove_empty_from_dict(d):
+    if type(d) is dict:
+        return dict((k, remove_empty_from_dict(v)) for k, v in d.items() if v and remove_empty_from_dict(v))
+    elif type(d) is list:
+        return [remove_empty_from_dict(v) for v in d if v and remove_empty_from_dict(v)]
+    else:
+        return d
+
+
+def get_latest_posts(query_object, logger):
+    thread_url = query_object.forum_url + \
+        "/showthread.php?t=" + query_object.thread_id
+
+    thread_soup = get_response_soup(thread_url, logger)
+
+    json_feed = get_top_level_feed(thread_url, thread_soup, logger)
+
+    username_lower_list = [username.lower().strip()
+                           for username in query_object.username_list]
 
     pagination = thread_soup.find(class_=['pagenav', 'pagination'])
 
@@ -102,48 +128,38 @@ def get_latest_posts(forum_url, thread_id, username_list):
 
     if pagination is not None:
 
-        last_page_text = str(next(string for string in pagination.strings if string.startswith('Page')))
+        last_page_text = str(
+            next(string for string in pagination.strings if string.startswith('Page')))
 
         try:
             last_page = int(str(last_page_text).split(' of ')[1])
         except ValueError:
-            last_page_text_sanitized = ''.join(filter(str.isdigit, last_page_text))
+            last_page_text_sanitized = ''.join(
+                filter(str.isdigit, last_page_text))
             last_page = int(last_page_text_sanitized)
 
         min_page = last_page - (page_limit - 1)
 
     start_page = 1 if min_page < 1 else min_page
 
-    items_list = []
-
     for page in range(start_page, last_page + 1):
 
-        page_response = requests.get(forum_url + thread_uri + f"&page={page}")
-
-        # return HTTP error code
-        if not page_response.ok:
-            return f"Error {page_response.status_code}"
-
-        # override vBulletin's wrong charset, fixes conversion issues with "smart-quotes"
-        if page_response.encoding == 'ISO-8859-1':
-            page_content = str(page_response.content.decode('windows-1252'))
-        else:
-            page_content = page_response.text
-
-        page_soup = BeautifulSoup(page_content, features='html.parser')
+        page_soup = get_response_soup(thread_url + f"&page={page}", logger)
 
         post_section = page_soup.select_one('div#posts')
 
         try:
-            post_tables = post_section.find_all('table', class_='tborder', id=re.compile('^post'))
+            post_tables = post_section.find_all(
+                'table', class_='tborder', id=re.compile('^post'))
         except AttributeError:
-            return "Error no posts found."
+            abort(
+                500, description='Error, unable to parse or no posts found.')
 
         for post_table in post_tables:
             post_id = str(post_table['id'].replace('post', ''))
 
             status_row = post_table.select_one('tr:first-of-type')
-            post_url = forum_url + f"/showpost.php?p={post_id}"
+            post_url = query_object.forum_url + f"/showpost.php?p={post_id}"
 
             post_author = post_table.find(id=f"postmenu_{post_id}").a
             post_author_text = post_author.get_text()
@@ -157,24 +173,23 @@ def get_latest_posts(forum_url, thread_id, username_list):
             # remove tabs
             post_content = post_content.replace('\t', '')
 
-            post_title_list = [thread_title, f"Page {page}"]
+            post_title_list = [json_feed.title, f"Page {page}"]
 
-            if username_list is not None and username_list:
-                post_title_list.append(f"Posts by {', '.join(username_list)}")
+            if query_object.username_list:
+                post_title_list.append(
+                    f"Posts by {', '.join(query_object.username_list)}")
 
-            item = {
-                'id': post_url,
-                'url': post_url,
-                'title': ' - '.join(post_title_list).strip(),
-                'content_html': bleach.clean(
+            feed_item = JsonFeedItem(
+                id=post_url,
+                url=post_url,
+                title=' - '.join(post_title_list).strip(),
+                content_html=bleach.clean(
                     post_content,
                     tags=allowed_tags,
                     strip=True
                 ),
-                'author': {
-                    'name': post_author_text
-                }
-            }
+                authors=[JsonFeedAuthor(name=post_author_text)]
+            )
 
             post_datetime_text = None
 
@@ -186,12 +201,10 @@ def get_latest_posts(forum_url, thread_id, username_list):
 
             if post_datetime_text is not None:
                 post_datetime = extract_datetime(post_datetime_text)
-                item['date_published'] = post_datetime.isoformat('T')
+                feed_item.date_published = post_datetime.isoformat('T')
 
             if not username_lower_list or\
                     (username_lower_list and post_author_text.lower().strip() in username_lower_list):
-                items_list.append(item)
+                json_feed.items.append(feed_item)
 
-    output['items'] = items_list
-
-    return output
+    return remove_empty_from_dict(asdict(json_feed))

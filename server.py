@@ -1,45 +1,39 @@
-import validators
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
+from flask.logging import create_logger
 from requests import exceptions
 
+from vb_feed_data import VbThreadQuery, QueryStatus
 from vb_feed import get_latest_posts
 
 app = Flask(__name__)
+app.config.update({'JSONIFY_MIMETYPE': 'application/feed+json'})
+logger = create_logger(app)
+
+
+def generate_response(query_object):
+    if not query_object.status.ok:
+        abort(400, description='Errors found: ' +
+              ', '.join(query_object.status.errors))
+
+    logger.debug(query_object)  # log values
+
+    output = get_latest_posts(query_object, logger)
+
+    return jsonify(output)
 
 
 @app.route('/', methods=['GET'])
-def form():
+@app.route('/thread', methods=['GET'])
+def process_query():
     forum_url = request.args.get('forum_url')
     thread_id = request.args.get('thread_id')
     usernames = request.args.get('usernames')
 
-    if forum_url is None or thread_id is None:
-        return 'Please provide values for both forum_url and thread_id'
+    vb_thread_query = VbThreadQuery(
+        forum_url=forum_url, thread_id=thread_id, usernames=usernames, status=QueryStatus())
 
-    if not thread_id.isnumeric():
-        return 'Invalid thread_id'
-
-    if not isinstance(forum_url, str):
-        return 'Invalid forum_url'
-
-    if forum_url.endswith('/'):
-        forum_url = forum_url.rstrip('/')
-
-    username_list = []
-
-    if usernames is not None:
-        assert isinstance(usernames, str)
-        username_list = usernames.split(',')
-
-    try:
-        assert validators.url(forum_url)
-        output = get_latest_posts(forum_url, thread_id, username_list)
-        return jsonify(output)
-    except AssertionError:
-        return f"Invalid url {forum_url}"
-    except exceptions.RequestException:
-        return f"Error generating output for thread {thread_id} at {forum_url}."
+    return generate_response(vb_thread_query)
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0')
+    app.run(host='0.0.0.0', use_reloader=False)

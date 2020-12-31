@@ -1,6 +1,4 @@
-validators
 bleach
-datetime
 requests
 flask
 beautifulsoup4
