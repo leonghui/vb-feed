@@ -164,11 +164,8 @@ def get_latest_posts(query_object, logger):
             # omit closing slash in void tags like br and remove carriage returns
             post_content = post_message_soup.encode(
                 formatter='html5').decode() if post_message_soup else ''
-            post_content = post_content.replace('\n', '')
-            post_content = post_content.replace('\r', '')
-
-            # remove tabs
-            post_content = post_content.replace('\t', '')
+            post_content = post_content.replace(
+                '\n', '').replace('\r', '').replace('\t', '')
 
             post_title_list = [json_feed.title, f"Page {page}"]
 
@@ -191,9 +188,7 @@ def get_latest_posts(query_object, logger):
 
             post_datetime_text = None
 
-            status_row = post_table.select_one('tr:first-of-type')
-
-            for cell in status_row.select('tr td.thead'):
+            for cell in post_table.select('tr td.thead'):
                 cell.a.decompose()
                 for string in cell.stripped_strings:
                     if not string.startswith('#'):
