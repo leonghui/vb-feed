@@ -100,11 +100,11 @@ def get_top_level_feed(thread_url, thread_soup, logger):
     return json_feed
 
 
-# https://stackoverflow.com/a/24893252
+# modified from https://stackoverflow.com/a/24893252
 def remove_empty_from_dict(d):
-    if type(d) is dict:
+    if isinstance(d, dict):
         return dict((k, remove_empty_from_dict(v)) for k, v in d.items() if v and remove_empty_from_dict(v))
-    elif type(d) is list:
+    elif isinstance(d, list):
         return [remove_empty_from_dict(v) for v in d if v and remove_empty_from_dict(v)]
     else:
         return d
