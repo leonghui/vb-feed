@@ -1,4 +1,3 @@
-import re
 import bleach
 from datetime import datetime, timedelta, timezone
 from flask import abort
@@ -146,27 +145,23 @@ def get_latest_posts(query_object, logger):
 
         page_soup = get_response_soup(thread_url + f"&page={page}", logger)
 
-        post_section = page_soup.select_one('div#posts')
-
-        try:
-            post_tables = post_section.find_all(
-                'table', class_='tborder', id=re.compile('^post'))
-        except AttributeError:
-            abort(
-                500, description='Error, unable to parse or no posts found.')
+        post_section = page_soup.select_one('div#posts') if page_soup else None
+        post_tables = post_section.select(
+            'table[id^=post]') if post_section else None
 
         for post_table in post_tables:
             post_id = str(post_table['id'].replace('post', ''))
+            post_url = query_object.forum_url + '/showpost.php?p=' + post_id
 
-            status_row = post_table.select_one('tr:first-of-type')
-            post_url = query_object.forum_url + f"/showpost.php?p={post_id}"
+            post_author_soup = post_table.select_one('a.bigusername')
+            post_author = post_author_soup.get_text().strip() if post_author_soup else None
 
-            post_author = post_table.find(id=f"postmenu_{post_id}").a
-            post_author_text = post_author.get_text()
-            post_message = post_table.find(id=f"post_message_{post_id}")
+            post_message_soup = post_table.select_one(
+                f"div#post_message_{post_id}")
 
             # omit closing slash in void tags like br and remove carriage returns
-            post_content = post_message.encode(formatter='html5').decode()
+            post_content = post_message_soup.encode(
+                formatter='html5').decode() if post_message_soup else ''
             post_content = post_content.replace('\n', '')
             post_content = post_content.replace('\r', '')
 
@@ -188,10 +183,12 @@ def get_latest_posts(query_object, logger):
                     tags=allowed_tags,
                     strip=True
                 ),
-                authors=[JsonFeedAuthor(name=post_author_text)]
+                authors=(JsonFeedAuthor(name=post_author))
             )
 
             post_datetime_text = None
+
+            status_row = post_table.select_one('tr:first-of-type')
 
             for cell in status_row.select('tr td.thead'):
                 cell.a.decompose()
@@ -203,8 +200,7 @@ def get_latest_posts(query_object, logger):
                 post_datetime = extract_datetime(post_datetime_text)
                 feed_item.date_published = post_datetime.isoformat('T')
 
-            if not username_lower_list or\
-                    (username_lower_list and post_author_text.lower().strip() in username_lower_list):
+            if not username_lower_list or (post_author.lower() in username_lower_list):
                 json_feed.items.append(feed_item)
 
     return remove_empty_from_dict(asdict(json_feed))
