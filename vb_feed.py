@@ -15,7 +15,9 @@ page_limit = FEED_POSTS_LIMIT // VB_POSTS_PER_THREAD
 if page_limit < 1:
     page_limit = 1
 
-allowed_tags = bleach.ALLOWED_TAGS.copy() + ['br', 'u']
+allowed_tags = bleach.ALLOWED_TAGS.copy() + ['br', 'img', 'u']
+allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
+allowed_attributes.update({'img': ['src']})
 allowed_tags.remove('a')
 
 
@@ -181,6 +183,7 @@ def get_latest_posts(query_object, logger):
                 content_html=bleach.clean(
                     post_content,
                     tags=allowed_tags,
+                    attributes=allowed_attributes,
                     strip=True
                 ),
                 authors=(JsonFeedAuthor(name=post_author))
