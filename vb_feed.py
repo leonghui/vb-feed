@@ -183,7 +183,8 @@ def get_latest_posts(query_object, logger):
                     attributes=allowed_attributes,
                     strip=True
                 ),
-                authors=(JsonFeedAuthor(name=post_author))
+                authors=(JsonFeedAuthor(name=post_author)),
+                author=JsonFeedAuthor(name=post_author)
             )
 
             post_datetime_text = None
