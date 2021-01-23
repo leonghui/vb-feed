@@ -61,12 +61,19 @@ def get_response_soup(url, logger):
     session = Session()
 
     logger.debug(f'Querying endpoint: {url}')
-    response = session.get(url)
+
+    try:
+        response = session.get(url)
+    except Exception as ex:
+        logger.debug('Exception:' + ex)
+        abort(500, description=ex)
 
     # return HTTP error code
     if not response.ok:
+        logger.error('Error from source')
+        logger.debug('Dumping input:' + response.text)
         abort(
-            500, description=f"HTTP status from source: {response.status_code}")
+            500, description='HTTP status from source: ' + str(response.status_code))
 
     # override vBulletin's wrong charset, fixes conversion issues with "smart-quotes"
     if response.encoding == 'ISO-8859-1':
