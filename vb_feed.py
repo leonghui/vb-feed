@@ -19,6 +19,8 @@ allowed_attributes = bleach.ALLOWED_ATTRIBUTES.copy()
 allowed_attributes.update({'img': ['src']})
 allowed_tags.remove('a')
 
+session = Session()
+
 
 def extract_datetime(text):
     datetime_formats = [
@@ -56,8 +58,6 @@ def extract_datetime(text):
 
 
 def get_response_soup(url, query_object, logger):
-
-    session = Session()
 
     logger.debug(f'"{query_object.forum_url}" - querying endpoint: {url}')
 
