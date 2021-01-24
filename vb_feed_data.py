@@ -20,18 +20,23 @@ class VbThreadQuery():
     usernames: str = None
 
     def validate_url(self):
-        prepared_request = PreparedRequest()
+        if not self.forum_url:
+            self.status.errors.append('Missing forum_url')
+        else:
+            prepared_request = PreparedRequest()
 
-        try:
-            prepared_request.prepare_url(self.forum_url, None)
-        except Exception as ex:
-            self.status.errors.append('Invalid forum_url: ' + str(ex))
+            try:
+                prepared_request.prepare_url(self.forum_url, None)
+            except Exception as ex:
+                self.status.errors.append(f"Invalid forum_url: {ex}")
 
-        if self.forum_url.endswith('/'):
-            self.forum_url = self.forum_url.rstrip('/')
+            if self.forum_url.endswith('/'):
+                self.forum_url = self.forum_url.rstrip('/')
 
     def validate_thread_id(self):
-        if not self.thread_id.isnumeric():
+        if not self.thread_id:
+            self.status.errors.append('Missing thread_id')
+        elif not self.thread_id.isnumeric():
             self.status.errors.append('Invalid thread_id')
 
     def tokenize_usernames(self):
