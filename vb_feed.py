@@ -56,24 +56,25 @@ def extract_datetime(text):
     return datetime_obj.astimezone(timezone.utc)
 
 
-def get_response_soup(url, logger):
+def get_response_soup(url, query_object, logger):
 
     session = Session()
 
-    logger.debug(f'Querying endpoint: {url}')
+    logger.debug(f'"{query_object.forum_url}" - querying endpoint: {url}')
 
     try:
         response = session.get(url)
     except Exception as ex:
-        logger.debug('Exception:' + ex)
+        logger.error(f'"{query_object.forum_url}" - exception: {ex}')
         abort(500, description=ex)
 
     # return HTTP error code
     if not response.ok:
-        logger.error('Error from source')
-        logger.debug('Dumping input:' + response.text)
+        logger.error(f'"{query_object.forum_url}" - error from source')
+        logger.debug(
+            f'"{query_object.forum_url}" - dumping input: {response.text}')
         abort(
-            500, description='HTTP status from source: ' + str(response.status_code))
+            500, description=f"HTTP status from source: {response.status_code}")
 
     # override vBulletin's wrong charset, fixes conversion issues with "smart-quotes"
     if response.encoding == 'ISO-8859-1':
@@ -122,7 +123,7 @@ def get_latest_posts(query_object, logger):
     thread_url = query_object.forum_url + \
         "/showthread.php?t=" + query_object.thread_id
 
-    thread_soup = get_response_soup(thread_url, logger)
+    thread_soup = get_response_soup(thread_url, query_object, logger)
 
     json_feed = get_top_level_feed(thread_url, thread_soup, logger)
 
@@ -152,7 +153,8 @@ def get_latest_posts(query_object, logger):
 
     for page in range(start_page, last_page + 1):
 
-        page_soup = get_response_soup(thread_url + f"&page={page}", logger)
+        page_soup = get_response_soup(
+            thread_url + f"&page={page}", query_object, logger)
 
         post_section = page_soup.select_one('div#posts') if page_soup else None
         post_tables = post_section.select(
