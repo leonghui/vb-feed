@@ -3,7 +3,6 @@ from datetime import datetime, timedelta, timezone
 from flask import abort
 from requests import Session
 from bs4 import BeautifulSoup
-from dataclasses import asdict
 
 from json_feed_data import JsonFeedTopLevel, JsonFeedItem, JsonFeedAuthor
 
@@ -109,16 +108,6 @@ def get_top_level_feed(thread_url, thread_soup, logger):
     return json_feed
 
 
-# modified from https://stackoverflow.com/a/24893252
-def remove_empty_from_dict(d):
-    if isinstance(d, dict):
-        return dict((k, remove_empty_from_dict(v)) for k, v in d.items() if v and remove_empty_from_dict(v))
-    elif isinstance(d, list):
-        return [remove_empty_from_dict(v) for v in d if v and remove_empty_from_dict(v)]
-    else:
-        return d
-
-
 def get_latest_posts(query_object, logger):
     thread_url = query_object.forum_url + \
         "/showthread.php?t=" + query_object.thread_id
@@ -211,4 +200,4 @@ def get_latest_posts(query_object, logger):
             if not username_lower_list or (post_author.lower() in username_lower_list):
                 json_feed.items.append(feed_item)
 
-    return remove_empty_from_dict(asdict(json_feed))
+    return json_feed
